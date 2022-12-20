@@ -5,11 +5,10 @@
 
 /**
  * @brief gathers information extracted through LZSS-encoding a file.
- * 
+ *
  * @param file the file content to compress
  * @return a struct holding all relevant information regarding the encoding.
  */
-lz_t
-lzss_compress(file_t *file);
+lz_t lzss_compress(file_t *file);
 
-#endif // LZ_H
+#endif   // LZ_H
