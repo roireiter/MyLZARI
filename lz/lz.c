@@ -1,5 +1,6 @@
 #include "lz.h"
 #include <stdint.h>
+#include <stdio.h>
 
 #define BREAK_EVEN_LENGTH 2
 

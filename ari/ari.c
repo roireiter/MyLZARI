@@ -1,12 +1,14 @@
 #include "ari.h"
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 ari_t
 ari_encode(lz_t *lz) {
     ari_t ari;
     size_t cumulative_value;
 
-    ari.cumulative = calloc(sizeof(uint16_t) * (lz->symbols_set_size + 1));
+    ari.cumulative = calloc((lz->symbols_set_size + 1), sizeof(uint16_t));
     ari.symbols = malloc(sizeof(uint16_t) * lz->symbols_set_size);
 
     cumulative_value = 0;

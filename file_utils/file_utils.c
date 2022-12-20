@@ -1,5 +1,6 @@
 #include "file_utils.h"
 #include <stdint.h>
+#include <stdlib.h>
 
 int
 parse_file(file_t *file, char *filename) {

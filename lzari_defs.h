@@ -1,6 +1,9 @@
 #ifndef LZARI_DEFS_H
 #define LZARI_DEFS_H
 
+#include <stdint.h>
+#include <stdio.h>
+
 /* Parameter definitions */
 #define MAX_FILE_SIZE (1 << 20)
 #define SYMBOLS_BITS  12
