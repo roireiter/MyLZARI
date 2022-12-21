@@ -1,9 +1,9 @@
 #include "ari/ari.h"
-#include "file_utils/file_utils.h"
 #include "lz/lz.h"
 #include "lzari_defs.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /*
@@ -17,19 +17,20 @@
 
 /* Compression & Decompression functions */
 static int
-compress(char *filename) {
+compress(char *filename, char *output_filename) {
     int status;
-    block_t block;
-    lz_t lz;
-    ari_t ari;
+    block_t block = {0};
+    lz_t lz = {0};
     FILE *fp;
-    size_t file_size;
+    FILE *fp_out;
 
     fp = fopen(filename, "rb");
     if (fp == NULL) {
         printf(INVALID_FILE_MSG);
         return 1;
     }
+
+    fp_out = fopen(output_filename, "wb");
 
     while (1) {
         block.size = fread(block.contents, sizeof(uint8_t),
@@ -38,32 +39,27 @@ compress(char *filename) {
             break;
         }
 
-        
+        lzss_compress(&block, &lz);
+        memset(&block, 0, sizeof(block));
+        ari_init(&lz, &block);
+        while (lz.encoding_idx < lz.size) {
+            ari_encode(&lz, &block);
+            fwrite(block.contents, sizeof(uint8_t),
+                   block.size, fp_out);
+            fseek(fp_out, -1, SEEK_CUR);
+        }
+        free(lz.distributions_table.order);
+        free(lz.distributions_table.unique);
+        free(lz.distributions_table.amt);
+        memset(&lz, 0, sizeof(lz));
     }
 
-    printf(DONE_MSG)
+    fclose(fp);
+    fclose(fp_out);
 
-    status = parse_file(&file, filename);
-    if (status != 0) {
-        return status;
-    }
+    printf(DONE_MSG);
+    printf(THANK_YOU_MSG);
 
-    printf("Parsed file. Beginning LZSS compression.\n");
-
-    lz = lzss_compress(&file);
-
-    printf("Compressed. Beginning arithmetic encoding.\n");
-    ari = ari_encode(&lz);
-
-    printf("Encoded. Outputting file.\n");
-    status = output_ari(&ari);
-    if (status != 0) {
-        printf(WRITE_ERROR_MSG);
-        return status;
-    }
-
-    printf("Process completed. The file should be in your workarea.\n");
-    printf("Thank you for choosing Roi's LZARI! Goodbye!\n");
     return 0;
 }
 
@@ -81,7 +77,7 @@ main(int argc, char *argv[]) {
     }
 
     if (strcmp(argv[1], "-c") == 0) {
-        return compress(argv[2]);
+        return compress(argv[2], "res/output/output.bin");
     } else if (strcmp(argv[1], "-d") == 0) {
         return decompress(argv[2]);
     } else {

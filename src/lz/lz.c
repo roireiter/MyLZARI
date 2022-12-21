@@ -20,7 +20,7 @@ The distance is bound by `window.cur_idx` - `window.start_idx`.
 The length is bound by `window.end_idx` - `window.cur_idx`.
 */
 static lz_pair_t
-find_lz_pair(file_t *file, window_t window) {
+lz_find_lz_pair(block_t *block, window_t window) {
     size_t candidate_idx;
     uint16_t candidate_length;
     uint16_t candidate_distance;
@@ -34,8 +34,8 @@ find_lz_pair(file_t *file, window_t window) {
         cur_match_checking_idx = window.cur_idx;
 
         while ((cur_match_checking_idx < window.end_idx) &&
-               (file->contents[cur_match_checking_idx] ==
-                file->contents[candidate_match_checking_idx])) {
+               (block->contents[cur_match_checking_idx] ==
+                block->contents[candidate_match_checking_idx])) {
             cur_match_checking_idx++;
             candidate_match_checking_idx++;
         }
@@ -52,36 +52,13 @@ find_lz_pair(file_t *file, window_t window) {
 }
 
 static void
-add_pair(lz_t *lz, lz_pair_t lz_pair) {
-    lz->contents[lz->size++] = SYMBOL(lz_pair.distance);
-    lz->contents[lz->size++] = SYMBOL(lz_pair.length);
-    if (lz->distributions[SYMBOL(lz_pair.distance)] == 0) {
-        lz->symbols_set_size++;
-    }
-    if (lz->distributions[SYMBOL(lz_pair.length)] == 0) {
-        lz->symbols_set_size++;
-    }
-    lz->distributions[SYMBOL(lz_pair.distance)]++;
-    lz->distributions[SYMBOL(lz_pair.length)]++;
-}
-
-static void
-add_literal(lz_t *lz, uint8_t literal) {
-    lz->contents[lz->size++] = literal;
-    lz->distributions[literal]++;
-}
-
-static void
-add_symbol(lz_t *lz, uint16_t symbol) {
+lz_add_symbol(lz_t *lz, uint16_t symbol) {
     lz->contents[lz->size++] = symbol;
-    if (lz->distributions[symbol] == 0) {
-        lz->symbols_set_size++;
-    }
     lz->distributions[symbol]++;
 }
 
 static void
-advance_window(window_t *window, uint16_t length, size_t limit_idx) {
+lz_advance_window(window_t *window, uint16_t length, size_t limit_idx) {
     window->cur_idx += length;
     if (window->cur_idx - window->start_idx > (WINDOW_SIZE / 2)) {
         window->start_idx += length;
@@ -93,22 +70,21 @@ advance_window(window_t *window, uint16_t length, size_t limit_idx) {
 
 /* API */
 
-lz_t
-lzss_compress(file_t *file) {
-    lz_t lz;
+void
+lzss_compress(block_t *block, lz_t *lz) {
     lz_pair_t lz_pair;
     window_t window = {
-        .start_idx = 0, .cur_idx = 0, .end_idx = MIN(WINDOW_SIZE, file->size)};
+        .start_idx = 0, .cur_idx = 0, .end_idx = MIN(WINDOW_SIZE, block->size)};
 
     while (window.cur_idx < window.end_idx) {
-        lz_pair = find_lz_pair(file, window);
+        lz_pair = lz_find_lz_pair(block, window);
         if (lz_pair.distance > 0) {
-            add_symbol(&lz, SYMBOL(lz_pair.distance));
-            add_symbol(&lz, SYMBOL(lz_pair.length));
+            lz_add_symbol(lz, SYMBOL(lz_pair.distance));
+            lz_add_symbol(lz, SYMBOL(lz_pair.length));
         } else {
-            add_symbol(&lz, file->contents[window.cur_idx]);
+            lz_add_symbol(lz, block->contents[window.cur_idx]);
         }
-        advance_window(&window, lz_pair.length, file->size);
+        lz_advance_window(&window, lz_pair.length, block->size);
     }
-    return lz;
+    lz_add_symbol(lz, EOF_SYMBOL);
 }

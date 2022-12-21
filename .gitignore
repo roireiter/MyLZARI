@@ -1,4 +1,4 @@
-input/*
-output/*
-main
+res
+build
+bin
 .vscode

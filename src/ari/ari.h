@@ -3,6 +3,8 @@
 
 #include "../lzari_defs.h"
 
-ari_t ari_encode(lz_t *lz);
+void ari_init(lz_t *lz, block_t *block);
+
+void ari_encode(lz_t *lz, block_t *block);
 
 #endif   // ARI_H
