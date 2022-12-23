@@ -18,7 +18,6 @@
 /* Compression & Decompression functions */
 static int
 compress(char *filename, char *output_filename) {
-    int status;
     block_t block = {0};
     lz_t lz = {0};
     FILE *fp;
@@ -41,17 +40,17 @@ compress(char *filename, char *output_filename) {
 
         lzss_compress(&block, &lz);
         memset(&block, 0, sizeof(block));
-        ari_init(&lz, &block);
-        while (lz.encoding_idx < lz.size) {
+        ari_encode_init(&lz, &block);
+        while (lz.idx < lz.size) {
             ari_encode(&lz, &block);
-            fwrite(block.contents, sizeof(uint8_t),
-                   block.size, fp_out);
+            fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
             fseek(fp_out, -1, SEEK_CUR);
         }
         free(lz.distributions_table.order);
         free(lz.distributions_table.unique);
         free(lz.distributions_table.amt);
         memset(&lz, 0, sizeof(lz));
+        memset(&block, 0, sizeof(block));
     }
 
     fclose(fp);
@@ -64,7 +63,59 @@ compress(char *filename, char *output_filename) {
 }
 
 static int
-decompress(char *filename) {
+decompress(char *filename, char *output_filename) {
+    block_t block = {0};
+    lz_t lz = {0};
+    FILE *fp;
+    FILE *fp_out;
+    size_t bytes_processed;
+
+    fp = fopen(filename, "rb");
+    if (fp == NULL) {
+        printf(INVALID_FILE_MSG);
+        return 1;
+    }
+
+    fp_out = fopen(output_filename, "wb");
+
+    while (1) {
+
+        block.size = fread(block.contents, sizeof(uint8_t),
+                           sizeof(block.contents) / sizeof(uint8_t), fp);
+        if (block.size == 0) {
+            break;
+        }
+        // printf("here\n");
+
+        ari_decode_init(&lz, &block);
+
+        while (1) {
+            bytes_processed = ari_decode(&lz, &block);
+            if (lz.contents[lz.idx - 1] == EOF_SYMBOL) {
+                fseek(fp, (int)bytes_processed - block.size, SEEK_CUR);
+                break;
+            }
+            block.size = fread(block.contents, sizeof(uint8_t),
+                               sizeof(block.contents) / sizeof(uint8_t), fp);
+        }
+
+        memset(&block, 0, sizeof(block));
+        lzss_decompress(&block, &lz);
+        fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
+
+        free(lz.distributions_table.order);
+        free(lz.distributions_table.unique);
+        free(lz.distributions_table.amt);
+        memset(&lz, 0, sizeof(lz));
+        memset(&block, 0, sizeof(block));
+    }
+
+    fclose(fp);
+    fclose(fp_out);
+
+    printf(DONE_MSG);
+    printf(THANK_YOU_MSG);
+
     return 0;
 }
 
@@ -77,9 +128,9 @@ main(int argc, char *argv[]) {
     }
 
     if (strcmp(argv[1], "-c") == 0) {
-        return compress(argv[2], "res/output/output.bin");
+        return compress(argv[2], "res/output/compressed.bin");
     } else if (strcmp(argv[1], "-d") == 0) {
-        return decompress(argv[2]);
+        return decompress(argv[2], "res/output/decompressed.bin");
     } else {
         printf(HELP_MSG);
         return 1;

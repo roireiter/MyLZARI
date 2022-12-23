@@ -53,6 +53,7 @@ lz_find_lz_pair(block_t *block, window_t window) {
 
 static void
 lz_add_symbol(lz_t *lz, uint16_t symbol) {
+
     lz->contents[lz->size++] = symbol;
     lz->distributions[symbol]++;
 }
@@ -87,4 +88,36 @@ lzss_compress(block_t *block, lz_t *lz) {
         lz_advance_window(&window, lz_pair.length, block->size);
     }
     lz_add_symbol(lz, EOF_SYMBOL);
+}
+
+void
+lzss_decompress(block_t *block, lz_t *lz) {
+    uint16_t symbol;
+    uint16_t distance;
+    uint16_t length;
+    size_t start_idx;
+    size_t end_idx;
+    
+    lz->idx = 0;
+    while (1) {
+        symbol = lz->contents[lz->idx++];
+        if (symbol == EOF_SYMBOL) {
+            break;
+        }
+        
+        if (symbol <= LITERALS_AMT) {
+            block->contents[block->size++] = symbol;
+            continue;
+        }
+
+        distance = LITERAL(symbol);
+        symbol = lz->contents[lz->idx++];
+        length = LITERAL(symbol);
+        start_idx = block->size - distance;
+        end_idx = start_idx + length;
+
+        for (int i = start_idx; i < end_idx; i++) {
+            block->contents[block->size++] = block->contents[i];
+        }
+    }
 }

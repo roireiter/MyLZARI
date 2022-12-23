@@ -4,8 +4,16 @@
 #include <stdint.h>
 #include <stdio.h>
 
+// TODO: DELETE THIS
+#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
+#define BYTE_TO_BINARY(byte)                                                   \
+    (byte & 0x80 ? '1' : '0'), (byte & 0x40 ? '1' : '0'),                      \
+        (byte & 0x20 ? '1' : '0'), (byte & 0x10 ? '1' : '0'),                  \
+        (byte & 0x08 ? '1' : '0'), (byte & 0x04 ? '1' : '0'),                  \
+        (byte & 0x02 ? '1' : '0'), (byte & 0x01 ? '1' : '0')
+
 /* Parameter definitions */
-#define BLOCK_BITS     17
+#define BLOCK_BITS     16
 #define SYMBOLS_BITS   10
 #define LITERALS_BITS  8
 #define PRECISION_BITS (64 - BLOCK_BITS - 1)   // using uint64_t
@@ -13,7 +21,7 @@
 #define BLOCK_SIZE   (1UL << BLOCK_BITS)
 #define SYMBOLS_AMT  (1UL << SYMBOLS_BITS)
 #define LITERALS_AMT (1UL << LITERALS_BITS)
-#define WINDOW_SIZE  ((SYMBOLS_AMT - LITERALS_AMT) * 2)
+#define WINDOW_SIZE  ((SYMBOLS_AMT - LITERALS_AMT - 1) * 2)
 #define EOF_SYMBOL   256   // luckily this symbol will never be used
 
 #define WHOLE   (1UL << PRECISION_BITS)
@@ -21,6 +29,7 @@
 #define QUARTER (1UL << (PRECISION_BITS - 2))
 
 #define SYMBOL(x) (x + LITERALS_AMT)
+#define LITERAL(x) (x - LITERALS_AMT)
 #define MIN(x, y) ((y < x) ? y : x)
 #define MAX(x, y) ((y > x) ? y : x)
 
@@ -53,7 +62,7 @@ typedef struct {
     size_t size;
     uint16_t contents[2 * BLOCK_SIZE];
     uint16_t distributions[SYMBOLS_AMT];
-    size_t encoding_idx;
+    size_t idx;
     dist_table_t distributions_table;
 } lz_t;
 

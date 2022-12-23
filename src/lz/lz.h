@@ -5,4 +5,6 @@
 
 void lzss_compress(block_t *block, lz_t *lz);
 
+void lzss_decompress(block_t *block, lz_t *lz);
+
 #endif   // LZ_H
