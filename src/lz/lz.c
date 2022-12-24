@@ -53,7 +53,6 @@ lz_find_lz_pair(block_t *block, window_t window) {
 
 static void
 lz_add_symbol(lz_t *lz, uint16_t symbol) {
-
     lz->contents[lz->size++] = symbol;
     lz->distributions[symbol]++;
 }

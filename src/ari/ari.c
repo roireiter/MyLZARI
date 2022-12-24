@@ -5,8 +5,8 @@
 #include <stdlib.h>
 
 void
-ari_encode_init(lz_t *lz, block_t *block) {
-    ari_encode_init_global_encoder();
+ari_encode_init(lz_t *lz, block_t *block, uint8_t block_bits) {
+    ari_encode_init_global_encoder(block_bits);
 
     ari_encode_init_dist_table(lz);
     ari_encode_emit_dist_table(lz, block);
@@ -34,8 +34,8 @@ ari_encode(lz_t *lz, block_t *block) {
 }
 
 void
-ari_decode_init(lz_t *lz, block_t *block) {
-    ari_decode_init_global_decoder();
+ari_decode_init(lz_t *lz, block_t *block, uint8_t block_bits) {
+    ari_decode_init_global_decoder(block_bits);
     ari_read_reset(block);
     ari_decode_allocate_dist_table(lz, block);
     ari_decode_init_dist_table(lz, block);

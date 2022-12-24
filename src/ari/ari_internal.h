@@ -1,7 +1,7 @@
 #ifndef ARI_INTERNAL_H
 #define ARI_INTERNAL_H
 
-void ari_encode_init_global_encoder(void);
+void ari_encode_init_global_encoder(uint8_t block_bits);
 
 void ari_encode_init_dist_table(lz_t *lz);
 
@@ -15,7 +15,7 @@ int ari_encode_edge_case(lz_t *lz, block_t *block);
 
 void ari_encode_rewrite(block_t *block);
 
-void ari_decode_init_global_decoder(void);
+void ari_decode_init_global_decoder(uint8_t block_bits);
 
 void ari_read_reset(block_t *block);
 

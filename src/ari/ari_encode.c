@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 struct {
+    uint64_t whole;
     size_t forwarding;
     uint64_t low;
     uint64_t high;
@@ -38,8 +39,8 @@ ari_emit_bits(size_t integer, size_t num_bits, block_t *block) {
     size_t left_bits;
 
     free_bits =
-        g_encoder.offset_bit + ((sizeof(block->contents) - block->size) * 8);
-    if ((free_bits < num_bits) || (block->size >= sizeof(block->contents))) {
+        g_encoder.offset_bit + ((block->capacity - block->size) * 8);
+    if ((free_bits < num_bits) || (block->size >= block->capacity)) {
         return 1;
     }
 
@@ -81,10 +82,11 @@ ari_emit_int(size_t integer, block_t *block) {
 /* API */
 
 void
-ari_encode_init_global_encoder(void) {
+ari_encode_init_global_encoder(uint8_t block_bits) {
+    g_encoder.whole = (1UL << (64 - block_bits - 1));
     g_encoder.forwarding = 0;
     g_encoder.low = 0;
-    g_encoder.high = WHOLE;
+    g_encoder.high = g_encoder.whole;
     g_encoder.offset_bit = 8;
     g_encoder.edge_case = 0;
     g_encoder.rewrite = 0;
@@ -203,7 +205,7 @@ ari_encode_ending(lz_t *lz, block_t *block) {
     int status;
 
     g_encoder.forwarding++;
-    if (g_encoder.low <= QUARTER) {
+    if (g_encoder.low <= (g_encoder.whole >> 2)) {
         status = ari_emit_bits((1UL << g_encoder.forwarding) - 1,
                                g_encoder.forwarding + 1, block);
         if (status != 0) {
@@ -246,8 +248,8 @@ ari_encode_next_symbol(lz_t *lz, block_t *block) {
     interval_size = g_encoder.high - g_encoder.low;
     g_encoder.high = g_encoder.low + ((interval_size * symbol_high) / lz->size);
     g_encoder.low = g_encoder.low + ((interval_size * symbol_low) / lz->size);
-    while ((g_encoder.high < HALF) || (g_encoder.low > HALF)) {
-        if (g_encoder.high < HALF) {
+    while ((g_encoder.high < (g_encoder.whole >> 1)) || (g_encoder.low > (g_encoder.whole >> 1))) {
+        if (g_encoder.high < (g_encoder.whole >> 1)) {
             status = ari_emit_bits((1UL << g_encoder.forwarding) - 1, g_encoder.forwarding + 1, block);
             if (status != 0) {
                 g_encoder.rewrite = 1;
@@ -262,15 +264,15 @@ ari_encode_next_symbol(lz_t *lz, block_t *block) {
                 g_encoder.rewrite = 1;
                 return status;
             }
-            g_encoder.low = (g_encoder.low - HALF) << 1;
-            g_encoder.high = (g_encoder.high - HALF) << 1;
+            g_encoder.low = (g_encoder.low - (g_encoder.whole >> 1)) << 1;
+            g_encoder.high = (g_encoder.high - (g_encoder.whole >> 1)) << 1;
             g_encoder.forwarding = 0;
         }
     }
 
-    while ((g_encoder.low > QUARTER) && (g_encoder.high < (3 * QUARTER))) {
-        g_encoder.low = (g_encoder.low - QUARTER) << 1;
-        g_encoder.high = (g_encoder.high - QUARTER) << 1;
+    while ((g_encoder.low > (g_encoder.whole >> 2)) && (g_encoder.high < (3 * (g_encoder.whole >> 2)))) {
+        g_encoder.low = (g_encoder.low - (g_encoder.whole >> 2)) << 1;
+        g_encoder.high = (g_encoder.high - (g_encoder.whole >> 2)) << 1;
         g_encoder.forwarding++;
     }
 

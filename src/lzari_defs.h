@@ -13,20 +13,13 @@
         (byte & 0x02 ? '1' : '0'), (byte & 0x01 ? '1' : '0')
 
 /* Parameter definitions */
-#define BLOCK_BITS     16
 #define SYMBOLS_BITS   10
 #define LITERALS_BITS  8
-#define PRECISION_BITS (64 - BLOCK_BITS - 1)   // using uint64_t
 
-#define BLOCK_SIZE   (1UL << BLOCK_BITS)
 #define SYMBOLS_AMT  (1UL << SYMBOLS_BITS)
 #define LITERALS_AMT (1UL << LITERALS_BITS)
 #define WINDOW_SIZE  ((SYMBOLS_AMT - LITERALS_AMT - 1) * 2)
 #define EOF_SYMBOL   256   // luckily this symbol will never be used
-
-#define WHOLE   (1UL << PRECISION_BITS)
-#define HALF    (1UL << (PRECISION_BITS - 1))
-#define QUARTER (1UL << (PRECISION_BITS - 2))
 
 #define SYMBOL(x) (x + LITERALS_AMT)
 #define LITERAL(x) (x - LITERALS_AMT)
@@ -55,12 +48,13 @@ typedef struct {
 
 typedef struct {
     size_t size;
-    uint8_t contents[BLOCK_SIZE];
+    size_t capacity;
+    uint8_t *contents;
 } block_t;
 
 typedef struct {
     size_t size;
-    uint16_t contents[2 * BLOCK_SIZE];
+    uint16_t *contents;
     uint16_t distributions[SYMBOLS_AMT];
     size_t idx;
     dist_table_t distributions_table;

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 /*
  * Welcome to Roi Reiter's amateur LZARI compressor/decompressor!
@@ -17,11 +18,12 @@
 
 /* Compression & Decompression functions */
 static int
-compress(char *filename, char *output_filename) {
+compress(char *filename, char *output_filename, int dry_run, uint8_t block_bits) {
     block_t block = {0};
     lz_t lz = {0};
     FILE *fp;
     FILE *fp_out;
+    int dry_run_result = 0;
 
     fp = fopen(filename, "rb");
     if (fp == NULL) {
@@ -31,19 +33,31 @@ compress(char *filename, char *output_filename) {
 
     fp_out = fopen(output_filename, "wb");
 
+    block.capacity = 1UL << block_bits;
+    block.contents = malloc(sizeof(uint8_t) * (1UL << block_bits));
+    lz.contents = malloc(sizeof(uint16_t) * (1UL << (block_bits + 1)));
+    if (!dry_run) {
+        fwrite(&block_bits, sizeof(uint8_t), 1, fp_out);
+    }
+
     while (1) {
         block.size = fread(block.contents, sizeof(uint8_t),
-                           sizeof(block.contents) / sizeof(uint8_t), fp);
+                           block.capacity, fp);
         if (block.size == 0) {
             break;
         }
 
         lzss_compress(&block, &lz);
-        memset(&block, 0, sizeof(block));
-        ari_encode_init(&lz, &block);
+        memset(block.contents, 0, block.capacity);
+        block.size = 0;
+        ari_encode_init(&lz, &block, block_bits);
         while (1) {
             ari_encode(&lz, &block);
-            fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
+            if (dry_run) {
+                dry_run_result += block.size;
+            } else {
+                fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
+            }
             if (lz.idx == lz.size) {
                 break;
             }
@@ -52,16 +66,26 @@ compress(char *filename, char *output_filename) {
         free(lz.distributions_table.order);
         free(lz.distributions_table.unique);
         free(lz.distributions_table.amt);
-        memset(&lz, 0, sizeof(lz));
-        memset(&block, 0, sizeof(block));
+        memset(lz.contents, 0, sizeof(uint16_t) * (1UL << (block_bits + 1)));
+        memset(lz.distributions, 0, sizeof(lz.distributions));
+        memset(&lz.distributions_table, 0, sizeof(lz.distributions_table));
+        lz.size = 0;
+        lz.idx = 0;
+        memset(block.contents, 0, block.capacity);
+        block.size = 0;
     }
 
     fclose(fp);
     fclose(fp_out);
+    free(block.contents);
+    free(lz.contents);
 
     printf(DONE_MSG);
     printf(THANK_YOU_MSG);
 
+    if (dry_run) {
+        return dry_run_result;
+    }
     return 0;
 }
 
@@ -72,6 +96,7 @@ decompress(char *filename, char *output_filename) {
     FILE *fp;
     FILE *fp_out;
     size_t bytes_processed;
+    uint8_t block_bits;
 
     fp = fopen(filename, "rb");
     if (fp == NULL) {
@@ -81,14 +106,19 @@ decompress(char *filename, char *output_filename) {
 
     fp_out = fopen(output_filename, "wb");
 
+    fread(&block_bits, sizeof(uint8_t), 1, fp);
+    block.capacity = 1UL << block_bits;
+    block.contents = malloc(sizeof(uint8_t) * (1UL << block_bits));
+    lz.contents = malloc(sizeof(uint16_t) * (1UL << (block_bits + 1)));
+
     while (1) {
  
         block.size = fread(block.contents, sizeof(uint8_t),
-                           sizeof(block.contents) / sizeof(uint8_t), fp);
+                           block.capacity, fp);
         if (block.size == 0) {
             break;
         }
-        ari_decode_init(&lz, &block);
+        ari_decode_init(&lz, &block, block_bits);
 
         while (1) {
             bytes_processed = ari_decode(&lz, &block);
@@ -97,22 +127,30 @@ decompress(char *filename, char *output_filename) {
                 break;
             }
             block.size = fread(block.contents, sizeof(uint8_t),
-                               sizeof(block.contents) / sizeof(uint8_t), fp);
+                               block.capacity, fp);
         }
 
-        memset(&block, 0, sizeof(block));
+        memset(block.contents, 0, block.capacity);
+        block.size = 0;
         lzss_decompress(&block, &lz);
         fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
 
         free(lz.distributions_table.order);
         free(lz.distributions_table.unique);
         free(lz.distributions_table.amt);
-        memset(&lz, 0, sizeof(lz));
-        memset(&block, 0, sizeof(block));
+        memset(lz.contents, 0, sizeof(uint16_t) * (1UL << (block_bits + 1)));
+        memset(lz.distributions, 0, sizeof(lz.distributions));
+        memset(&lz.distributions_table, 0, sizeof(lz.distributions_table));
+        lz.size = 0;
+        lz.idx = 0;
+        memset(block.contents, 0, block.capacity);
+        block.size = 0;
     }
 
     fclose(fp);
     fclose(fp_out);
+    free(block.contents);
+    free(lz.contents);
 
     printf(DONE_MSG);
     printf(THANK_YOU_MSG);
@@ -129,7 +167,17 @@ main(int argc, char *argv[]) {
     }
 
     if (strcmp(argv[1], "-c") == 0) {
-        return compress(argv[2], "res/output/compressed.bin");
+        uint8_t best_block_bits;
+        int best_result = INT_MAX;
+        int cur_result;
+        for (uint8_t i = 10; i < 17; i++) {
+            cur_result = compress(argv[2], "res/output/compressed.bin", 1, i);
+            if (cur_result < best_result) {
+                best_result = cur_result;
+                best_block_bits = i;
+            }
+        }
+        return compress(argv[2], "res/output/compressed.bin", 0, best_block_bits);
     } else if (strcmp(argv[1], "-d") == 0) {
         return decompress(argv[2], "res/output/decompressed.bin");
     } else {
