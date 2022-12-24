@@ -168,7 +168,6 @@ ari_encode_emit_dist_table(lz_t *lz, block_t *block) {
     // emit symbols
     for (size_t i = 0; i < lz->distributions_table.symbols_set_size; i++) {
         ari_emit_bits(lz->distributions_table.order[i], SYMBOLS_BITS, block);
-        // printf("%u %u\n", lz->distributions_table.order[i], lz->distributions[lz->distributions_table.order[i]]);
     }
     ari_emit_bits(EOF_SYMBOL, SYMBOLS_BITS, block);
 
@@ -176,7 +175,6 @@ ari_encode_emit_dist_table(lz_t *lz, block_t *block) {
     for (size_t i = 0; i < lz->distributions_table.unique_dist_size; i++) {
         ari_emit_int(lz->distributions_table.unique[i], block);
         ari_emit_int(lz->distributions_table.amt[i], block);
-        // printf("%u %u\n", lz->distributions_table.unique[i], lz->distributions_table.amt[i]);
     }
 
     ari_emit_bits(0, g_encoder.offset_bit, block);
@@ -223,7 +221,7 @@ ari_encode_ending(lz_t *lz, block_t *block) {
         }
     }
 
-    if (status == 0) {
+    if (status == 0 && g_encoder.offset_bit < 8) {
         ari_emit_bits(0, g_encoder.offset_bit, block);
     }
 }
@@ -237,7 +235,6 @@ ari_encode_next_symbol(lz_t *lz, block_t *block) {
     int status;
 
     symbol = lz->contents[lz->idx];
-    // printf("%u\n", symbol);
     symbol_high = lz->distributions[symbol];
     symbol_low =
         (lz->distributions_table.inverse_order[symbol] == 0)
@@ -246,44 +243,28 @@ ari_encode_next_symbol(lz_t *lz, block_t *block) {
                   [lz->distributions_table.order
                        [lz->distributions_table.inverse_order[symbol] - 1]];
 
-    // printf("s_low=%llu\ns_high=%llu\n", symbol_low, symbol_high);
     interval_size = g_encoder.high - g_encoder.low;
     g_encoder.high = g_encoder.low + ((interval_size * symbol_high) / lz->size);
     g_encoder.low = g_encoder.low + ((interval_size * symbol_low) / lz->size);
-    // printf("%llu %llu\n", g_encoder.low, g_encoder.high);
-    // printf("%llu %llu\n", symbol_high, symbol_low);
-    // printf("%u %u %u %llu\n", symbol_high, symbol_low, lz->size, interval_size);
-    // printf("low=%llu\nhigh=%llu\ninterval=%llu\n", g_encoder.low, g_encoder.high, interval_size);
     while ((g_encoder.high < HALF) || (g_encoder.low > HALF)) {
         if (g_encoder.high < HALF) {
-            // printf("%llu\n", emit);
             status = ari_emit_bits((1UL << g_encoder.forwarding) - 1, g_encoder.forwarding + 1, block);
             if (status != 0) {
                 g_encoder.rewrite = 1;
                 return status;
             }
-            // printf("emit=%llu\nbits=%u\n", emit, g_encoder.forwarding + 1);
             g_encoder.low <<= 1;
             g_encoder.high <<= 1;
             g_encoder.forwarding = 0;
-            // printf("%llu %llu\n", g_encoder.low, g_encoder.high);
-            // printf("%u %u %u %llu\n", symbol_high, symbol_low, lz->size, interval_size);
-            // printf("new_low=%llu\nnew_high=%llu\n", g_encoder.low, g_encoder.high);
         } else {
-            // printf("%llu\n", 0);
-            // printf("%llu\n", emit);
             status = ari_emit_bits(1UL << g_encoder.forwarding, g_encoder.forwarding + 1, block);
             if (status != 0) {
                 g_encoder.rewrite = 1;
                 return status;
             }
-            // printf("emit=%llu\nbits=%u\n", emit, g_encoder.forwarding + 1);
             g_encoder.low = (g_encoder.low - HALF) << 1;
             g_encoder.high = (g_encoder.high - HALF) << 1;
             g_encoder.forwarding = 0;
-            // printf("%llu %llu\n", g_encoder.low, g_encoder.high);
-            // printf("%u %u %u %llu\n", symbol_high, symbol_low, lz->size, interval_size);
-            // printf("new_low=%llu\nnew_high=%llu\n", g_encoder.low, g_encoder.high);
         }
     }
 
@@ -291,11 +272,7 @@ ari_encode_next_symbol(lz_t *lz, block_t *block) {
         g_encoder.low = (g_encoder.low - QUARTER) << 1;
         g_encoder.high = (g_encoder.high - QUARTER) << 1;
         g_encoder.forwarding++;
-        // printf("%llu %llu\n", g_encoder.low, g_encoder.high);
-        // printf("%u %u %u %llu\n", symbol_high, symbol_low, lz->size, interval_size);
     }
-    // printf("forwarding=%llu\n", g_encoder.forwarding);
-    // printf("low=%llu\nhigh=%llu\ninterval=%llu\n", g_encoder.low, g_encoder.high, interval_size);
 
     lz->idx++;
     return 0;

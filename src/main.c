@@ -41,9 +41,12 @@ compress(char *filename, char *output_filename) {
         lzss_compress(&block, &lz);
         memset(&block, 0, sizeof(block));
         ari_encode_init(&lz, &block);
-        while (lz.idx < lz.size) {
+        while (1) {
             ari_encode(&lz, &block);
             fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
+            if (lz.idx == lz.size) {
+                break;
+            }
             fseek(fp_out, -1, SEEK_CUR);
         }
         free(lz.distributions_table.order);
@@ -79,14 +82,12 @@ decompress(char *filename, char *output_filename) {
     fp_out = fopen(output_filename, "wb");
 
     while (1) {
-
+ 
         block.size = fread(block.contents, sizeof(uint8_t),
                            sizeof(block.contents) / sizeof(uint8_t), fp);
         if (block.size == 0) {
             break;
         }
-        // printf("here\n");
-
         ari_decode_init(&lz, &block);
 
         while (1) {

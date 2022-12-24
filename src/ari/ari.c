@@ -43,7 +43,5 @@ ari_decode_init(lz_t *lz, block_t *block) {
 
 size_t
 ari_decode(lz_t *lz, block_t *block) {
-    // printf("there\n");
     return ari_decode_main(lz, block);
-    // return g_decoder.block_idx
 }

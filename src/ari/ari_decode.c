@@ -9,6 +9,7 @@ struct {
     uint8_t offset_bit;
     size_t block_idx;
     uint8_t started_decoding_contents;
+    uint8_t block_finished;
 } g_decoder = {0};
 
 /* Readers */
@@ -85,17 +86,43 @@ ari_decode_init_approx(block_t *block) {
     uint16_t bit_read;
     size_t precision = 1;
 
-    // printf("binary approx init: ");
     while (precision <= PRECISION_BITS) {
         bit_read = 0;
         ari_read_bits(&bit_read, 1, block);
-        // printf("%llu", bit_read);
         if (bit_read == 1) {
             g_decoder.binary_approx += (1UL << (PRECISION_BITS - precision));
         }
         precision++;
     }
-    // printf("\n");
+}
+
+static void
+ari_decode_ending(void) {
+    size_t rewind_bits_amt;
+    size_t left_bits;
+    uint16_t bit_read;
+
+    rewind_bits_amt = 0;
+    while ((g_decoder.low < g_decoder.binary_approx) && (g_decoder.binary_approx  < g_decoder.high) &&
+    (g_decoder.low < (g_decoder.binary_approx ^ 1)) && ((g_decoder.binary_approx ^ 1)  < g_decoder.high)) {
+        g_decoder.low >>= 1;
+        g_decoder.high >>= 1;
+        g_decoder.binary_approx >>= 1;
+        rewind_bits_amt++;
+    }
+    while (rewind_bits_amt > 0) {
+        if (g_decoder.offset_bit == 8) {
+            g_decoder.offset_bit = 0;
+            g_decoder.block_idx--;
+        }
+        g_decoder.offset_bit++;
+        rewind_bits_amt--;
+    }
+
+    if (g_decoder.offset_bit < 8) {
+        g_decoder.offset_bit = 8;
+        g_decoder.block_idx++;
+    }
 }
 
 /* API */
@@ -105,6 +132,7 @@ ari_decode_init_global_decoder(void) {
     g_decoder.low = 0;
     g_decoder.high = WHOLE;
     g_decoder.binary_approx = 0;
+    g_decoder.started_decoding_contents = 0;
 }
 
 void
@@ -179,14 +207,12 @@ ari_decode_init_dist_table(lz_t *lz, block_t *block) {
         amt = 0;
         ari_read_int(&distribution, block);
         ari_read_int(&amt, block);
-        // printf("%u %u\n", distribution, amt);
         lz->distributions_table.unique[i] = distribution;
         lz->distributions_table.amt[i] = amt;
         for (size_t j = total_amt; j < total_amt + amt; j++) {
             cumulative_distribution += distribution;
             lz->distributions[lz->distributions_table.order[j]] =
                 cumulative_distribution;
-            // printf("%u %u\n", lz->distributions_table.order[j], lz->distributions[lz->distributions_table.order[j]]);
         }
         total_amt += amt;
         lz->size += (amt * distribution);
@@ -210,6 +236,8 @@ ari_decode_main(lz_t *lz, block_t *block) {
         ari_decode_init_approx(block);
     }
 
+    g_decoder.block_finished = 0;
+
     while (1) {
         for (size_t i = 0; i < lz->distributions_table.symbols_set_size; i++) {
             symbol = lz->distributions_table.order[i];
@@ -220,26 +248,16 @@ ari_decode_main(lz_t *lz, block_t *block) {
             high = g_decoder.low + ((interval_size * symbol_high) / lz->size);
             low = g_decoder.low + ((interval_size * symbol_low) / lz->size);
 
-            // printf("interval=%llu\n s_low=%llu\n s_high=%llu\n i=%llu\n s=%llu\n",
-            //        interval_size, symbol_low, symbol_high, i, symbol);
-            // printf("g_high=%llu\n g_low=%llu\n-------------\n", g_decoder.high, g_decoder.low);
-
             if (low <= g_decoder.binary_approx &&
                 g_decoder.binary_approx < high) {
                 lz->contents[lz->idx++] = symbol;
                 g_decoder.high = high;
                 g_decoder.low = low;
-                // printf("%u %u %u %llu\n", symbol_high, symbol_low, lz->size, interval_size);
-                // printf("%u\n", symbol);
-                // printf("%llu %llu\n", g_decoder.low, g_decoder.high);
-                // printf("%llu %llu\n", symbol_high, symbol_low);
-                            // printf("approx=%llu\n",
-                //    g_decoder.binary_approx);
-                // printf("%llu\n", g_decoder.binary_approx);
-                // printf("s_low=%llu\ns_high=%llu\n", symbol_low, symbol_high);
-
                 if (symbol == EOF_SYMBOL) {
-                    ari_read_bits(&bit_read, g_decoder.offset_bit, block);
+                    if (!g_decoder.block_finished) {
+                        ari_decode_ending();
+                        
+                    }
                     return g_decoder.block_idx;
                 }
                 break;
@@ -247,60 +265,40 @@ ari_decode_main(lz_t *lz, block_t *block) {
         }
 
         while (g_decoder.high < HALF || g_decoder.low > HALF) {
-            // printf("hit this\n");
             if (g_decoder.high < HALF) {
                 g_decoder.low <<= 1;
                 g_decoder.high <<= 1;
                 g_decoder.binary_approx <<= 1;
-                // printf("%llu %llu\n", g_decoder.low, g_decoder.high);
-                // printf("%u %u %u %llu\n", symbol_high, symbol_low, lz->size, interval_size);
-                // printf("g_low=%llu\n approx=%llu\n g_high=%llu\n", g_decoder.low,
-                //    g_decoder.binary_approx, g_decoder.high);
             } else {
                 g_decoder.low = (g_decoder.low - HALF) << 1;
                 g_decoder.high = (g_decoder.high - HALF) << 1;
                 g_decoder.binary_approx = (g_decoder.binary_approx - HALF) << 1;
-                // printf("%llu %llu\n", g_decoder.low, g_decoder.high);
-                // printf("%u %u %u %llu\n", symbol_high, symbol_low, lz->size, interval_size);
-                // printf("g_low=%llu\n approx=%llu\n g_high=%llu\n", g_decoder.low,
-                //    g_decoder.binary_approx, g_decoder.high);
             }
             bit_read = 0;
             status = ari_read_bits(&bit_read, 1, block);
-            // printf("%llu", bit_read);
             if (status != 0) {
-                // printf("done1\n");
+                g_decoder.block_finished = 1;
                 continue;
             }
             if (bit_read == 1) {
                 g_decoder.binary_approx += 1;
             }
-            // printf("g_low=%llu\n approx=%llu\n g_high=%llu\n", g_decoder.low,
-                //    g_decoder.binary_approx, g_decoder.high);
         }
 
         while ((g_decoder.low > QUARTER) && (g_decoder.high < (3 * QUARTER))) {
-            // printf("hit that\n");
             g_decoder.low = (g_decoder.low - QUARTER) << 1;
             g_decoder.high = (g_decoder.high - QUARTER) << 1;
             g_decoder.binary_approx = (g_decoder.binary_approx - QUARTER) << 1;
-            // printf("%llu %llu\n", g_decoder.low, g_decoder.high);
-            // printf("%u %u %u %llu\n", symbol_high, symbol_low, lz->size, interval_size);
-            // printf("g_low=%llu\n approx=%llu\n g_high=%llu\n", g_decoder.low,
-                //    g_decoder.binary_approx, g_decoder.high);
             bit_read = 0;
             status = ari_read_bits(&bit_read, 1, block);
-            // printf("%llu", bit_read);
 
             if (status != 0) {
-                // printf("done2\n");
+                g_decoder.block_finished = 1;
                 continue;
             }
             if (bit_read == 1) {
                 g_decoder.binary_approx += 1;
             }
-            // printf("g_low=%llu\n approx=%llu\n g_high=%llu\n", g_decoder.low,
-                //    g_decoder.binary_approx, g_decoder.high);
         }
     }
     return g_decoder.block_idx;
