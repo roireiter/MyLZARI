@@ -38,8 +38,7 @@ ari_emit_bits(size_t integer, size_t num_bits, block_t *block) {
     size_t free_bits;
     size_t left_bits;
 
-    free_bits =
-        g_encoder.offset_bit + ((block->capacity - block->size) * 8);
+    free_bits = g_encoder.offset_bit + ((block->capacity - block->size) * 8);
     if ((free_bits < num_bits) || (block->size >= block->capacity)) {
         return 1;
     }
@@ -248,9 +247,11 @@ ari_encode_next_symbol(lz_t *lz, block_t *block) {
     interval_size = g_encoder.high - g_encoder.low;
     g_encoder.high = g_encoder.low + ((interval_size * symbol_high) / lz->size);
     g_encoder.low = g_encoder.low + ((interval_size * symbol_low) / lz->size);
-    while ((g_encoder.high < (g_encoder.whole >> 1)) || (g_encoder.low > (g_encoder.whole >> 1))) {
+    while ((g_encoder.high < (g_encoder.whole >> 1)) ||
+           (g_encoder.low > (g_encoder.whole >> 1))) {
         if (g_encoder.high < (g_encoder.whole >> 1)) {
-            status = ari_emit_bits((1UL << g_encoder.forwarding) - 1, g_encoder.forwarding + 1, block);
+            status = ari_emit_bits((1UL << g_encoder.forwarding) - 1,
+                                   g_encoder.forwarding + 1, block);
             if (status != 0) {
                 g_encoder.rewrite = 1;
                 return status;
@@ -259,7 +260,8 @@ ari_encode_next_symbol(lz_t *lz, block_t *block) {
             g_encoder.high <<= 1;
             g_encoder.forwarding = 0;
         } else {
-            status = ari_emit_bits(1UL << g_encoder.forwarding, g_encoder.forwarding + 1, block);
+            status = ari_emit_bits(1UL << g_encoder.forwarding,
+                                   g_encoder.forwarding + 1, block);
             if (status != 0) {
                 g_encoder.rewrite = 1;
                 return status;
@@ -270,7 +272,8 @@ ari_encode_next_symbol(lz_t *lz, block_t *block) {
         }
     }
 
-    while ((g_encoder.low > (g_encoder.whole >> 2)) && (g_encoder.high < (3 * (g_encoder.whole >> 2)))) {
+    while ((g_encoder.low > (g_encoder.whole >> 2)) &&
+           (g_encoder.high < (3 * (g_encoder.whole >> 2)))) {
         g_encoder.low = (g_encoder.low - (g_encoder.whole >> 2)) << 1;
         g_encoder.high = (g_encoder.high - (g_encoder.whole >> 2)) << 1;
         g_encoder.forwarding++;

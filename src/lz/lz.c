@@ -62,9 +62,9 @@ lz_advance_window(window_t *window, uint16_t length, size_t limit_idx) {
     window->cur_idx += length;
     if (window->cur_idx - window->start_idx > (WINDOW_SIZE / 2)) {
         window->start_idx += length;
-        if (window->end_idx < limit_idx) {
-            window->end_idx = MIN((window->end_idx + length), limit_idx);
-        }
+    }
+    if (window->end_idx < limit_idx) {
+        window->end_idx = MIN((window->end_idx + length), limit_idx);
     }
 }
 
@@ -73,8 +73,9 @@ lz_advance_window(window_t *window, uint16_t length, size_t limit_idx) {
 void
 lzss_compress(block_t *block, lz_t *lz) {
     lz_pair_t lz_pair;
-    window_t window = {
-        .start_idx = 0, .cur_idx = 0, .end_idx = MIN(WINDOW_SIZE, block->size)};
+    window_t window = {.start_idx = 0,
+                       .cur_idx = 0,
+                       .end_idx = MIN(WINDOW_SIZE / 2, block->size)};
 
     while (window.cur_idx < window.end_idx) {
         lz_pair = lz_find_lz_pair(block, window);
@@ -96,14 +97,14 @@ lzss_decompress(block_t *block, lz_t *lz) {
     uint16_t length;
     size_t start_idx;
     size_t end_idx;
-    
+
     lz->idx = 0;
     while (1) {
         symbol = lz->contents[lz->idx++];
         if (symbol == EOF_SYMBOL) {
             break;
         }
-        
+
         if (symbol <= LITERALS_AMT) {
             block->contents[block->size++] = symbol;
             continue;

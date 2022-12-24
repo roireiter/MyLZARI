@@ -4,27 +4,19 @@
 #include <stdint.h>
 #include <stdio.h>
 
-// TODO: DELETE THIS
-#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
-#define BYTE_TO_BINARY(byte)                                                   \
-    (byte & 0x80 ? '1' : '0'), (byte & 0x40 ? '1' : '0'),                      \
-        (byte & 0x20 ? '1' : '0'), (byte & 0x10 ? '1' : '0'),                  \
-        (byte & 0x08 ? '1' : '0'), (byte & 0x04 ? '1' : '0'),                  \
-        (byte & 0x02 ? '1' : '0'), (byte & 0x01 ? '1' : '0')
-
 /* Parameter definitions */
-#define SYMBOLS_BITS   10
-#define LITERALS_BITS  8
+#define SYMBOLS_BITS  10
+#define LITERALS_BITS 8
 
 #define SYMBOLS_AMT  (1UL << SYMBOLS_BITS)
 #define LITERALS_AMT (1UL << LITERALS_BITS)
 #define WINDOW_SIZE  ((SYMBOLS_AMT - LITERALS_AMT - 1) * 2)
 #define EOF_SYMBOL   256   // luckily this symbol will never be used
 
-#define SYMBOL(x) (x + LITERALS_AMT)
+#define SYMBOL(x)  (x + LITERALS_AMT)
 #define LITERAL(x) (x - LITERALS_AMT)
-#define MIN(x, y) ((y < x) ? y : x)
-#define MAX(x, y) ((y > x) ? y : x)
+#define MIN(x, y)  ((y < x) ? y : x)
+#define MAX(x, y)  ((y > x) ? y : x)
 
 /* String definitions */
 #define HELP_MSG                                                               \
@@ -32,9 +24,6 @@
     "path to your file.\n"
 #define INVALID_FILE_MSG "Problem accessing given file. Operation failed.\n"
 #define WRITE_ERROR_MSG  "Problem outputting the compressed/decompressed file.\n"
-#define DONE_MSG                                                               \
-    "Process completed! Your file is located at output directory.\n"
-#define THANK_YOU_MSG "Thank you for choosing Roi's LZARI! Goodbye!\n"
 
 /* Struct definitions */
 typedef struct {

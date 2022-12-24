@@ -92,7 +92,8 @@ ari_decode_init_approx(block_t *block) {
         bit_read = 0;
         ari_read_bits(&bit_read, 1, block);
         if (bit_read == 1) {
-            g_decoder.binary_approx += (1UL << (g_decoder.precision - precision));
+            g_decoder.binary_approx +=
+                (1UL << (g_decoder.precision - precision));
         }
         precision++;
     }
@@ -105,8 +106,10 @@ ari_decode_ending(void) {
     uint16_t bit_read;
 
     rewind_bits_amt = 0;
-    while ((g_decoder.low < g_decoder.binary_approx) && (g_decoder.binary_approx  < g_decoder.high) &&
-    (g_decoder.low < (g_decoder.binary_approx ^ 1)) && ((g_decoder.binary_approx ^ 1)  < g_decoder.high)) {
+    while ((g_decoder.low < g_decoder.binary_approx) &&
+           (g_decoder.binary_approx < g_decoder.high) &&
+           (g_decoder.low < (g_decoder.binary_approx ^ 1)) &&
+           ((g_decoder.binary_approx ^ 1) < g_decoder.high)) {
         g_decoder.low >>= 1;
         g_decoder.high >>= 1;
         g_decoder.binary_approx >>= 1;
@@ -246,7 +249,10 @@ ari_decode_main(lz_t *lz, block_t *block) {
         for (size_t i = 0; i < lz->distributions_table.symbols_set_size; i++) {
             symbol = lz->distributions_table.order[i];
             symbol_high = lz->distributions[symbol];
-            symbol_low = (i == 0) ? 0 : lz->distributions[lz->distributions_table.order[i - 1]];
+            symbol_low =
+                (i == 0)
+                    ? 0
+                    : lz->distributions[lz->distributions_table.order[i - 1]];
 
             interval_size = g_decoder.high - g_decoder.low;
             high = g_decoder.low + ((interval_size * symbol_high) / lz->size);
@@ -260,7 +266,6 @@ ari_decode_main(lz_t *lz, block_t *block) {
                 if (symbol == EOF_SYMBOL) {
                     if (!g_decoder.block_finished) {
                         ari_decode_ending();
-                        
                     }
                     return g_decoder.block_idx;
                 }
@@ -268,7 +273,8 @@ ari_decode_main(lz_t *lz, block_t *block) {
             }
         }
 
-        while (g_decoder.high < (g_decoder.whole >> 1) || g_decoder.low > (g_decoder.whole >> 1)) {
+        while (g_decoder.high < (g_decoder.whole >> 1) ||
+               g_decoder.low > (g_decoder.whole >> 1)) {
             if (g_decoder.high < (g_decoder.whole >> 1)) {
                 g_decoder.low <<= 1;
                 g_decoder.high <<= 1;
@@ -276,7 +282,8 @@ ari_decode_main(lz_t *lz, block_t *block) {
             } else {
                 g_decoder.low = (g_decoder.low - (g_decoder.whole >> 1)) << 1;
                 g_decoder.high = (g_decoder.high - (g_decoder.whole >> 1)) << 1;
-                g_decoder.binary_approx = (g_decoder.binary_approx - (g_decoder.whole >> 1)) << 1;
+                g_decoder.binary_approx =
+                    (g_decoder.binary_approx - (g_decoder.whole >> 1)) << 1;
             }
             bit_read = 0;
             status = ari_read_bits(&bit_read, 1, block);
@@ -289,10 +296,12 @@ ari_decode_main(lz_t *lz, block_t *block) {
             }
         }
 
-        while ((g_decoder.low > (g_decoder.whole >> 2)) && (g_decoder.high < (3 * (g_decoder.whole >> 2)))) {
+        while ((g_decoder.low > (g_decoder.whole >> 2)) &&
+               (g_decoder.high < (3 * (g_decoder.whole >> 2)))) {
             g_decoder.low = (g_decoder.low - (g_decoder.whole >> 2)) << 1;
             g_decoder.high = (g_decoder.high - (g_decoder.whole >> 2)) << 1;
-            g_decoder.binary_approx = (g_decoder.binary_approx - (g_decoder.whole >> 2)) << 1;
+            g_decoder.binary_approx =
+                (g_decoder.binary_approx - (g_decoder.whole >> 2)) << 1;
             bit_read = 0;
             status = ari_read_bits(&bit_read, 1, block);
 

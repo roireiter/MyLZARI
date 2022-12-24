@@ -1,11 +1,11 @@
 #include "ari/ari.h"
 #include "lz/lz.h"
 #include "lzari_defs.h"
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 
 /*
  * Welcome to Roi Reiter's amateur LZARI compressor/decompressor!
@@ -18,12 +18,14 @@
 
 /* Compression & Decompression functions */
 static int
-compress(char *filename, char *output_filename, int dry_run, uint8_t block_bits) {
+compress(char *filename, char *output_filename, int dry_run,
+         uint8_t block_bits) {
     block_t block = {0};
     lz_t lz = {0};
     FILE *fp;
     FILE *fp_out;
     int dry_run_result = 0;
+    size_t written_bytes_amt;
 
     fp = fopen(filename, "rb");
     if (fp == NULL) {
@@ -37,16 +39,18 @@ compress(char *filename, char *output_filename, int dry_run, uint8_t block_bits)
     block.contents = malloc(sizeof(uint8_t) * (1UL << block_bits));
     lz.contents = malloc(sizeof(uint16_t) * (1UL << (block_bits + 1)));
     if (!dry_run) {
-        fwrite(&block_bits, sizeof(uint8_t), 1, fp_out);
+        written_bytes_amt = fwrite(&block_bits, sizeof(uint8_t), 1, fp_out);
+        if (written_bytes_amt != 1) {
+            printf(WRITE_ERROR_MSG);
+            return 1;
+        }
     }
 
     while (1) {
-        block.size = fread(block.contents, sizeof(uint8_t),
-                           block.capacity, fp);
+        block.size = fread(block.contents, sizeof(uint8_t), block.capacity, fp);
         if (block.size == 0) {
             break;
         }
-
         lzss_compress(&block, &lz);
         memset(block.contents, 0, block.capacity);
         block.size = 0;
@@ -56,7 +60,12 @@ compress(char *filename, char *output_filename, int dry_run, uint8_t block_bits)
             if (dry_run) {
                 dry_run_result += block.size;
             } else {
-                fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
+                written_bytes_amt =
+                    fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
+                if (written_bytes_amt != block.size) {
+                    printf(WRITE_ERROR_MSG);
+                    return 1;
+                }
             }
             if (lz.idx == lz.size) {
                 break;
@@ -80,9 +89,6 @@ compress(char *filename, char *output_filename, int dry_run, uint8_t block_bits)
     free(block.contents);
     free(lz.contents);
 
-    printf(DONE_MSG);
-    printf(THANK_YOU_MSG);
-
     if (dry_run) {
         return dry_run_result;
     }
@@ -97,6 +103,7 @@ decompress(char *filename, char *output_filename) {
     FILE *fp_out;
     size_t bytes_processed;
     uint8_t block_bits;
+    size_t written_bytes_amt;
 
     fp = fopen(filename, "rb");
     if (fp == NULL) {
@@ -112,9 +119,8 @@ decompress(char *filename, char *output_filename) {
     lz.contents = malloc(sizeof(uint16_t) * (1UL << (block_bits + 1)));
 
     while (1) {
- 
-        block.size = fread(block.contents, sizeof(uint8_t),
-                           block.capacity, fp);
+
+        block.size = fread(block.contents, sizeof(uint8_t), block.capacity, fp);
         if (block.size == 0) {
             break;
         }
@@ -126,14 +132,19 @@ decompress(char *filename, char *output_filename) {
                 fseek(fp, (int)bytes_processed - block.size, SEEK_CUR);
                 break;
             }
-            block.size = fread(block.contents, sizeof(uint8_t),
-                               block.capacity, fp);
+            block.size =
+                fread(block.contents, sizeof(uint8_t), block.capacity, fp);
         }
 
         memset(block.contents, 0, block.capacity);
         block.size = 0;
         lzss_decompress(&block, &lz);
-        fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
+        written_bytes_amt =
+            fwrite(block.contents, sizeof(uint8_t), block.size, fp_out);
+        if (written_bytes_amt != block.size) {
+            printf(WRITE_ERROR_MSG);
+            return 1;
+        }
 
         free(lz.distributions_table.order);
         free(lz.distributions_table.unique);
@@ -152,16 +163,14 @@ decompress(char *filename, char *output_filename) {
     free(block.contents);
     free(lz.contents);
 
-    printf(DONE_MSG);
-    printf(THANK_YOU_MSG);
-
     return 0;
 }
 
 /* Main function */
 int
 main(int argc, char *argv[]) {
-    if (argc != 3) {
+    int status;
+    if (argc != 3 && argc != 5) {
         printf(HELP_MSG);
         return 1;
     }
@@ -170,16 +179,22 @@ main(int argc, char *argv[]) {
         uint8_t best_block_bits;
         int best_result = INT_MAX;
         int cur_result;
-        for (uint8_t i = 10; i < 17; i++) {
+
+        for (uint8_t i = 9; i < 17; i++) {
             cur_result = compress(argv[2], "res/output/compressed.bin", 1, i);
             if (cur_result < best_result) {
                 best_result = cur_result;
                 best_block_bits = i;
             }
         }
-        return compress(argv[2], "res/output/compressed.bin", 0, best_block_bits);
+        status =
+            compress(argv[2], "res/output/compressed.bin", 0, best_block_bits);
+        printf("%s FINISHED\n", argv[2]);
+        return status;
     } else if (strcmp(argv[1], "-d") == 0) {
-        return decompress(argv[2], "res/output/decompressed.bin");
+        status = decompress(argv[2], "res/output/decompressed.bin");
+        printf("%s FINISHED\n", argv[2]);
+        return status;
     } else {
         printf(HELP_MSG);
         return 1;
