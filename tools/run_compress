@@ -1,1 +1,3 @@
-./bin/main -c ./res/input/Samp1.bin
+#!/bin/bash
+
+./bin/main -c ./res/input/Samp3.bin

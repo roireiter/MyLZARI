@@ -58,9 +58,11 @@ lz_add_symbol(lz_t *lz, uint16_t symbol) {
 }
 
 static void
-lz_advance_window(window_t *window, uint16_t length, size_t limit_idx) {
+lz_advance_window(window_t *window, uint16_t length, size_t limit_idx,
+                  size_t symbols_amt) {
     window->cur_idx += length;
-    if (window->cur_idx - window->start_idx > (WINDOW_SIZE / 2)) {
+    if (window->cur_idx - window->start_idx >
+        (symbols_amt - LITERALS_AMT - 1)) {
         window->start_idx += length;
     }
     if (window->end_idx < limit_idx) {
@@ -73,9 +75,10 @@ lz_advance_window(window_t *window, uint16_t length, size_t limit_idx) {
 void
 lzss_compress(block_t *block, lz_t *lz) {
     lz_pair_t lz_pair;
-    window_t window = {.start_idx = 0,
-                       .cur_idx = 0,
-                       .end_idx = MIN(WINDOW_SIZE / 2, block->size)};
+    window_t window = {
+        .start_idx = 0,
+        .cur_idx = 0,
+        .end_idx = MIN(lz->symbols_amt - LITERALS_AMT - 1, block->size)};
 
     while (window.cur_idx < window.end_idx) {
         lz_pair = lz_find_lz_pair(block, window);
@@ -85,7 +88,8 @@ lzss_compress(block_t *block, lz_t *lz) {
         } else {
             lz_add_symbol(lz, block->contents[window.cur_idx]);
         }
-        lz_advance_window(&window, lz_pair.length, block->size);
+        lz_advance_window(&window, lz_pair.length, block->size,
+                          lz->symbols_amt);
     }
     lz_add_symbol(lz, EOF_SYMBOL);
 }

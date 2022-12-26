@@ -103,7 +103,7 @@ ari_encode_init_dist_table(lz_t *lz) {
 
     // allocate the order array
     lz->distributions_table.symbols_set_size = 0;
-    for (size_t i = 0; i < SYMBOLS_AMT; i++) {
+    for (size_t i = 0; i < lz->symbols_amt; i++) {
         if (lz->distributions[i] != 0) {
             lz->distributions_table.symbols_set_size++;
         }
@@ -118,13 +118,13 @@ ari_encode_init_dist_table(lz_t *lz) {
     lz->distributions_table.unique_dist_size = 0;
     while (order_idx < lz->distributions_table.symbols_set_size) {
         cur_min = UINT16_MAX;
-        for (int j = 0; j < SYMBOLS_AMT; j++) {
+        for (int j = 0; j < lz->symbols_amt; j++) {
             if ((lz->distributions[j] > last_min) &&
                 (lz->distributions[j] < cur_min)) {
                 cur_min = lz->distributions[j];
             }
         }
-        for (int j = 0; j < SYMBOLS_AMT; j++) {
+        for (int j = 0; j < lz->symbols_amt; j++) {
             if (lz->distributions[j] == cur_min) {
                 lz->distributions_table.order[order_idx] = j;
                 lz->distributions_table.inverse_order[j] = order_idx;
@@ -168,9 +168,9 @@ void
 ari_encode_emit_dist_table(lz_t *lz, block_t *block) {
     // emit symbols
     for (size_t i = 0; i < lz->distributions_table.symbols_set_size; i++) {
-        ari_emit_bits(lz->distributions_table.order[i], SYMBOLS_BITS, block);
+        ari_emit_bits(lz->distributions_table.order[i], lz->symbol_bits, block);
     }
-    ari_emit_bits(EOF_SYMBOL, SYMBOLS_BITS, block);
+    ari_emit_bits(EOF_SYMBOL, lz->symbol_bits, block);
 
     // emit distributions
     for (size_t i = 0; i < lz->distributions_table.unique_dist_size; i++) {
@@ -185,6 +185,7 @@ int
 ari_encode_edge_case(lz_t *lz, block_t *block) {
     if (g_encoder.edge_case) {
         lz->idx++;
+        block->size = 0;
         ari_encode_ending(lz, block);
     }
     return g_encoder.edge_case;

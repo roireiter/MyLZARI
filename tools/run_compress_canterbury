@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ./bin/main -c ./res/input/canterbury/alice29.txt
 mv ./res/output/compressed.bin ./res/output/canterbury/alice29.txt
 ./bin/main -c ./res/input/canterbury/asyoulik.txt

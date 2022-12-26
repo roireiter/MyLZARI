@@ -5,12 +5,9 @@
 #include <stdio.h>
 
 /* Parameter definitions */
-#define SYMBOLS_BITS  10
 #define LITERALS_BITS 8
 
-#define SYMBOLS_AMT  (1UL << SYMBOLS_BITS)
 #define LITERALS_AMT (1UL << LITERALS_BITS)
-#define WINDOW_SIZE  ((SYMBOLS_AMT - LITERALS_AMT - 1) * 2)
 #define EOF_SYMBOL   256   // luckily this symbol will never be used
 
 #define SYMBOL(x)  (x + LITERALS_AMT)
@@ -30,7 +27,7 @@ typedef struct {
     size_t symbols_set_size;
     size_t unique_dist_size;
     uint16_t *order;
-    uint16_t inverse_order[SYMBOLS_AMT];
+    uint16_t *inverse_order;
     uint16_t *unique;
     uint16_t *amt;
 } dist_table_t;
@@ -43,8 +40,10 @@ typedef struct {
 
 typedef struct {
     size_t size;
+    size_t symbols_amt;
+    size_t symbol_bits;
     uint16_t *contents;
-    uint16_t distributions[SYMBOLS_AMT];
+    uint16_t *distributions;
     size_t idx;
     dist_table_t distributions_table;
 } lz_t;

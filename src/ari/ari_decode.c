@@ -162,12 +162,12 @@ ari_decode_allocate_dist_table(lz_t *lz, block_t *block) {
     // distribution order and for done reading.
     do {
         symbol = 0;
-        ari_read_bits(&symbol, SYMBOLS_BITS, block);
+        ari_read_bits(&symbol, lz->symbol_bits, block);
         lz->distributions_table.symbols_set_size++;
     } while (symbol != EOF_SYMBOL);
     do {
         symbol = 0;
-        ari_read_bits(&symbol, SYMBOLS_BITS, block);
+        ari_read_bits(&symbol, lz->symbol_bits, block);
         lz->distributions_table.symbols_set_size++;
     } while (symbol != EOF_SYMBOL);
     lz->distributions_table.symbols_set_size--;
@@ -202,10 +202,10 @@ ari_decode_init_dist_table(lz_t *lz, block_t *block) {
 
     for (size_t i = 0; i < lz->distributions_table.symbols_set_size; i++) {
         symbol = 0;
-        ari_read_bits(&symbol, SYMBOLS_BITS, block);
+        ari_read_bits(&symbol, lz->symbol_bits, block);
         lz->distributions_table.order[i] = symbol;
     }
-    ari_read_bits(&symbol, SYMBOLS_BITS, block);   // read EOF
+    ari_read_bits(&symbol, lz->symbol_bits, block);   // read EOF
     lz->size = 0;
     total_amt = 0;
     cumulative_distribution = 0;
